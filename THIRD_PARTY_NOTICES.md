@@ -16,3 +16,10 @@ This skill's natural-Chinese revision workflow was independently adapted with re
 
 The five mandatory Chinese writing rules and the concrete before/after example in `references/natural-writing.md` were supplied by the WorkBuddy skill owner for this project.
 
+## wechat-article-search
+
+- Project: https://github.com/zjp1997720/zhijian-skills/tree/main/skills/wechat-article-search
+- Source revision: b2c82a6b3d73385d3a31f78d288d96445990b88c
+- License: MIT; see `licenses/wechat-article-search-MIT.txt`
+- Bundled component: the Sogou WeChat search script and its runtime dependency, built as `scripts/wechat-search.bundle.cjs`.
+- Local adaptation: `scripts/search-wechat.js` enforces a default 365-day window and emits normalized JSON metadata.
