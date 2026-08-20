@@ -1,12 +1,12 @@
 ---
 name: wechat-content-research
-display_name: 公众号选题与上游信源调研
-display_name_en: WeChat Editorial Research
+display_name: 公众号选题情报与写作
+display_name_en: WeChat Editorial Intelligence & Writing
 description: 面向企业公众号的选题情报研究与成稿写作。先理解账号定位、传播任务与可用业务证据，再按目标行业动态调研原始材料、行业权威媒体、科技/创投机构、研究平台、同类内容和企业一手现场，将外部信号转化为可验证的选题判断；需要成稿时，抽象参考语料的语言特征与行文思路，执行强制去 AI 味写作，并分别交付调研报告与文章成稿。适用于选题策划、内容研究、公众号对标和文章写作；不用于只按关键词罗列文章链接。
 description_zh: 从上游议题、管理问题、同类表达与企业现场中形成可验证选题并写成自然中文稿件
 description_en: Research defensible WeChat editorial angles and turn them into evidence-grounded, natural Chinese drafts
 category: writing
-version: 0.4.0
+version: 0.4.1
 author: 句子互动
 allowed-tools: Bash,Read,WebSearch,WebFetch
 metadata:
@@ -18,7 +18,7 @@ metadata:
       reason: 搜索公开研究报告、权威原始材料和微信公众号文章
 ---
 
-# 公众号选题与上游信源调研
+# 公众号选题情报与写作
 
 目标不是找到一批“别人写过的文章”，而是帮助企业账号形成一条可验证的选题推导链：
 
