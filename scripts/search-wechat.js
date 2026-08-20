@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 
 const path = require("path");
+const os = require("os");
+const fs = require("fs");
 const { spawnSync } = require("child_process");
 
 function usage() {
@@ -14,16 +16,22 @@ function sleep(ms) {
 }
 
 function normalizeText(value) {
-  return String(value || "").replace(/\s+/g, "").toLowerCase();
+  return String(value || "").normalize("NFKC").toLowerCase()
+    .replace(/[^\p{Letter}\p{Number}]+/gu, "");
 }
 
 function dateKey(value) {
   if (!value) return "";
   const raw = String(value).trim();
-  const timestamp = /^\d{10}$/.test(raw) ? Number(raw) * 1000 : Date.parse(raw);
-  if (!Number.isNaN(timestamp)) return new Date(timestamp).toISOString().slice(0, 10);
   const match = raw.match(/(20\d{2})\D{1,3}(\d{1,2})\D{1,3}(\d{1,2})/);
-  return match ? `${match[1]}-${match[2].padStart(2, "0")}-${match[3].padStart(2, "0")}` : "";
+  if (match) return `${match[1]}-${match[2].padStart(2, "0")}-${match[3].padStart(2, "0")}`;
+  const timestamp = /^\d{10}$/.test(raw) ? Number(raw) * 1000 : Date.parse(raw);
+  if (Number.isNaN(timestamp)) return "";
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Shanghai", year: "numeric", month: "2-digit", day: "2-digit",
+  }).formatToParts(new Date(timestamp));
+  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  return `${values.year}-${values.month}-${values.day}`;
 }
 
 function canonicalizeWechatUrl(rawUrl) {
@@ -37,6 +45,7 @@ function canonicalizeWechatUrl(rawUrl) {
   for (const key of ["__biz", "mid", "idx", "sn"]) {
     if (parsed.searchParams.has(key)) stable.set(key, parsed.searchParams.get(key));
   }
+  if (!["__biz", "mid", "idx", "sn"].every((key) => stable.has(key))) return null;
   parsed.search = stable.toString();
   parsed.hash = "";
   return parsed.toString();
@@ -58,6 +67,79 @@ async function webbridge(action, args, session) {
     throw new Error(data.error || `${action} failed`);
   }
   return data;
+}
+
+function findWebbridgeBinary() {
+  const candidates = [];
+  if (process.env.KIMI_WEBBRIDGE_BIN) candidates.push(process.env.KIMI_WEBBRIDGE_BIN);
+  const locator = spawnSync(process.platform === "win32" ? "where" : "which", ["kimi-webbridge"], {
+    encoding: "utf8",
+  });
+  if (locator.status === 0 && locator.stdout.trim()) {
+    candidates.push(locator.stdout.trim().split(/\r?\n/)[0]);
+  }
+  candidates.push(path.join(os.homedir(), ".kimi-webbridge", "bin",
+    process.platform === "win32" ? "kimi-webbridge.exe" : "kimi-webbridge"));
+  return candidates.find((candidate) => candidate && fs.existsSync(candidate)) || null;
+}
+
+async function ensureWebbridge(session) {
+  const startedAt = new Date().toISOString();
+  try {
+    await webbridge("list_tabs", {}, session);
+    return {
+      tool: "kimi-webbridge",
+      attempted: true,
+      status: "available",
+      command: "list_tabs",
+      auto_start_attempted: false,
+      error: null,
+      timestamp: startedAt,
+    };
+  } catch (initialError) {
+    const binary = findWebbridgeBinary();
+    if (!binary) {
+      return {
+        tool: "kimi-webbridge",
+        attempted: true,
+        status: "unavailable",
+        command: "list_tabs",
+        auto_start_attempted: false,
+        error: `${initialError.message}; Kimi WebBridge CLI not installed or declared`,
+        timestamp: startedAt,
+      };
+    }
+
+    const start = spawnSync(binary, ["start"], { encoding: "utf8", timeout: 15000 });
+    const startError = start.error?.message || (start.status === 0 ? "" : (start.stderr || `exit ${start.status}`).trim());
+    for (let attempt = 0; attempt < 10; attempt += 1) {
+      await sleep(500);
+      try {
+        await webbridge("list_tabs", {}, session);
+        return {
+          tool: "kimi-webbridge",
+          attempted: true,
+          status: "recovered",
+          command: `${binary} start`,
+          auto_start_attempted: true,
+          error: null,
+          initial_error: initialError.message,
+          timestamp: startedAt,
+        };
+      } catch (_) {
+        // Keep polling until the local daemon and extension have connected.
+      }
+    }
+    return {
+      tool: "kimi-webbridge",
+      attempted: true,
+      status: "unavailable",
+      command: `${binary} start`,
+      auto_start_attempted: true,
+      error: startError || `${initialError.message}; daemon did not become ready`,
+      timestamp: startedAt,
+    };
+  }
 }
 
 async function verifyInBrowser(article, index, session) {
@@ -115,12 +197,14 @@ async function verifyInBrowser(article, index, session) {
       published_at: dateMatches,
       body: bodyReadable,
     };
-    const failedChecks = Object.entries(checks).filter(([, passed]) => !passed).map(([name]) => name);
     const resolvedUrl = isWechatArticle ? canonicalizeWechatUrl(page.url) : null;
+    checks.stable_url = Boolean(resolvedUrl);
+    const fullyVerified = verified && Boolean(resolvedUrl);
+    const allFailedChecks = Object.entries(checks).filter(([, passed]) => !passed).map(([name]) => name);
     return {
       ...article,
       candidate_url: candidateUrl,
-      url: verified ? resolvedUrl : candidateUrl,
+      url: fullyVerified ? resolvedUrl : candidateUrl,
       resolved_url: resolvedUrl,
       verified_title: page.title || null,
       verified_account: page.account || null,
@@ -128,8 +212,8 @@ async function verifyInBrowser(article, index, session) {
       body_text: bodyReadable ? page.body_text : null,
       body_length: page.body_length || 0,
       verification_checks: checks,
-      verification: verified ? "verified" : "failed",
-      verification_error: verified ? null : `failed checks: ${failedChecks.join(", ")}`,
+      verification: fullyVerified ? "verified" : "failed",
+      verification_error: fullyVerified ? null : `failed checks: ${allFailedChecks.join(", ")}`,
     };
   } catch (error) {
     return {
@@ -226,7 +310,10 @@ const candidates = dated.slice(0, requested);
 (async () => {
   const session = `wechat-research-${Date.now()}`;
   const articles = [];
+  const toolAttempts = [];
   if (resolveUrl) {
+    const webbridgeStatus = await ensureWebbridge(session);
+    toolAttempts.push(webbridgeStatus);
     // A WebBridge session has one current tab. Verify sequentially so one
     // candidate cannot navigate away while another candidate is being read.
     for (let index = 0; index < candidates.length; index += 1) {
@@ -241,6 +328,7 @@ const candidates = dated.slice(0, requested);
     ok: true,
     channel: "sogou-weixin",
     verification_channel: resolveUrl ? "kimi-webbridge" : null,
+    tool_attempts: toolAttempts,
     query,
     requested,
     returned: articles.length,

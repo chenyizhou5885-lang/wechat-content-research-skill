@@ -6,7 +6,7 @@ description: 面向企业公众号的选题情报研究与成稿写作。先理�
 description_zh: 从上游议题、管理问题、同类表达与企业现场中形成可验证选题并写成自然中文稿件
 description_en: Research defensible WeChat editorial angles and turn them into evidence-grounded, natural Chinese drafts
 category: writing
-version: 0.5.1
+version: 0.6.0
 author: 句子互动
 allowed-tools: Bash,Read,WebSearch,WebFetch
 metadata:
@@ -23,6 +23,13 @@ metadata:
 目标不是找到一批“别人写过的文章”，而是帮助企业账号形成一条可验证的选题推导链：
 
 `上游信号 → 管理/业务问题 → 具体场景 → 企业一手证据 → 差异化判断`
+
+## WorkBuddy 执行边界
+
+- 公开来源发现与网页读取使用 WorkBuddy 宿主自动提供的 `WebSearch`、`WebFetch`；先定向寻找机构官网、报告原文和官方页面，不把搜索摘要当证据。
+- 本 Skill 的 `scripts/` 只执行本地标准库数据清洗、门禁和已安装可选工具的状态检测，不硬编码 Token、账号、用户绝对路径或远程私有服务。
+- Kimi WebBridge 是可选的本地核验增强，不是 WorkBuddy 内置工具。脚本可检测 PATH、`KIMI_WEBBRIDGE_BIN` 或标准安装位置并尝试启动；未安装时如实记录。
+- 红狐 API 尚未作为 WorkBuddy Connector 接入，不得声称已调用。需要自动调用时，应另按 WorkBuddy MCP/CLI Connector 规范接入并由用户完成授权。
 
 ## 用户只问“你能做什么”时
 
@@ -83,6 +90,23 @@ metadata:
 
 开始外部检索前必须读取 [信源质量与证据准入](references/source-quality.md)，先建立本轮优先信源池，再执行机构优先检索。链接可访问不等于证据合格；按 S/A/B/C 分级，C 级只作线索。数字、预测、公司动作、引语等核心事实必须回溯原始出处。强推荐选题至少具备 1 个 S 级原始来源、1 个独立 A 级来源和企业一手现场；不满足时降低为“待验证方向”。
 
+同时读取 @references/source-pipeline.md，执行下面的可审计信源流水线。文字报告不能替代流水线产物。
+
+## 可审计信源流水线
+
+在任务输出目录执行：
+
+1. 从 `templates/raw_sources.json` 复制生成 `raw_sources.json`。
+2. 使用宿主 `WebSearch/WebFetch` 至少走两种发现渠道，先建立至少 12 个候选；实际打开至少 8 个页面，记录最终 URL、发布者、日期、原创性和页面级证据。
+3. 搜索微信公众号时执行 `node scripts/search-wechat.js "关键词" -n 10`；最终候选用 `-r` 核验。把脚本返回的 `tool_attempts` 和文章字段写入 `raw_sources.json`。
+4. 执行 `python3 scripts/build_sources.py --raw raw_sources.json --out sources.json`。只使用 `accepted_sources` 写正式台账；`rejected_sources` 写入待核验与淘汰线索。
+5. 先写 `research-report.md`，再执行 `python3 scripts/validate_research.py --sources sources.json --mode writing --report research-report.md`。
+6. 只有退出码为 0 才创建 `article-draft.md`。创建后再次执行同一命令并加 `--article article-draft.md`。
+
+门禁退出码非零时停止写作，只交付标明缺口的研究报告与 `raw_sources.json`、`sources.json`。不得用普通 Web Search、搜索摘要或“工具当前不可用”的一句话代替公众号调研门禁。
+
+修改或发布 Skill 前执行 `python3 scripts/validate_skill.py` 与 `python3 -m unittest discover -s tests -v`；任一非零退出时不得打包。
+
 ## 默认时间范围
 
 - 所有外部检索默认只召回从执行当天向前 365 天内发布的内容，包括公众号文章、研究报告、媒体文章和案例。
@@ -107,6 +131,7 @@ metadata:
 
 - 执行前根据当前日期计算默认起始日期，并在研究坐标中写明实际检索范围。
 - 搜索微信公众号文章时，优先读取 [内置搜狗微信文章搜索](references/wechat-search.md)，使用 `node scripts/search-wechat.js "关键词" -n 10` 召回一年内候选文章；对最终入选的少量候选使用 `-r`，默认通过 Kimi WebBridge 在真实浏览器中打开并核验原文。搜狗渠道失败时再降级为普通网页搜索。
+- 普通网页搜索的降级结果只进入候选池和待核验线索，不能替代公众号原文门禁。声称搜狗或 WebBridge 不可用前，必须在 `tool_attempts` 保存真实命令、自动启动/重试状态和错误。
 - 先搜索上游概念、变化和原始材料，再搜索管理解释和公众号表达。
 - 对同一重要事实回溯原始出处；公众号转载、搜索摘要和 AI 摘要不能替代原文。
 - 记录标题、作者/机构、发布日期、可点击原始链接、来源层级、核心观点、可用证据及与账号的关系。
@@ -192,14 +217,16 @@ metadata:
 - 研究文章只能提供表达参照，不能把其中的经历、判断和证据冒充为企业自己的材料。
 - 用户明确指定的语气和格式在不违反事实、版权与本门禁的前提下优先；“模仿某人”应改为抽象高层特征。
 
-## 写作任务必须交付两个文件
+## 写作任务的条件性交付
 
-只要任务包含文章写作、改写或成稿，不要把调研与成稿合并成一份，也不要只在对话中粘贴最终文章。必须分别创建：
+任务包含文章写作、改写或成稿时，先创建研究报告并通过 `validate_research.py --mode writing`。通过后分别创建：
 
 1. `research-report.md`：调研内容、来源台账、材料选择、参考语言风格、行文思路、选题判断、证据边界和可优化项。
 2. `article-draft.md`：完成自然中文与去 AI 味自检的文章成稿。
 
 文件名可以添加主题前缀，但必须保持“调研报告”和“文章成稿”两个独立文件。保存位置优先使用用户指定目录；未指定时使用当前任务目录下清晰命名的输出文件夹。
+
+门禁未通过时不得创建 `article-draft.md`，只交付研究报告、`raw_sources.json`、`sources.json` 和明确补采动作；这不算写作任务完成。
 
 调研报告是给用户审阅和二次优化的编辑工作底稿，不是内部思考过程或模型推理记录。必须明确展示：
 

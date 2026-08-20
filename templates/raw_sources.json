@@ -1,0 +1,24 @@
+{
+  "research_brief": {
+    "topic": "",
+    "industry": "",
+    "date_from": "",
+    "date_to": ""
+  },
+  "requirements": {
+    "wechat_research_required": true,
+    "min_verified_wechat_articles": 3,
+    "min_verified_wechat_publishers": 2,
+    "min_candidates": 12,
+    "min_visited_results": 8,
+    "min_accepted_sources": 5,
+    "min_discovery_channels": 2
+  },
+  "queries": [],
+  "tool_attempts": [],
+  "candidate_pool": [],
+  "enterprise_materials": [],
+  "results": [],
+  "claim_ledger": [],
+  "selected_topics": []
+}

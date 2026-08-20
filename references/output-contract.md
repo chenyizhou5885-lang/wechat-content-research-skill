@@ -110,6 +110,13 @@
 
 ## 写作任务的双文件交付
 
+双文件交付仅在 `validate_research.py --mode writing` 退出码为 0 时成立。每次研究同时保留：
+
+- `raw_sources.json`：宿主搜索、工具尝试、候选、实际访问结果、核心事实和选题证据映射。
+- `sources.json`：`build_sources.py` 生成的接受/淘汰来源、覆盖审计和门禁状态。
+
+门禁失败时不创建文章成稿，只交付上述两份审计文件与限制明确的 `research-report.md`。
+
 ### 文件一：research-report.md
 
 这是一份用户可以编辑的研究与写作底稿，必须包含：

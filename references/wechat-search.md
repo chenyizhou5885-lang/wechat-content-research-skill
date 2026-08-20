@@ -50,12 +50,12 @@ node scripts/search-wechat.js "关键词" -n 5 -r
 - `returned` 为 0 时，先更换关键词或稍后重试一次。
 - 遇到验证码、antispider、请求超时或页面结构变化时停止搜狗请求，改用普通网页搜索并在调研报告中说明渠道限制。
 - 不高频调用，不批量抓取账号历史，不用旧文章补足数量。
-- WebBridge 未启动时，按 Kimi WebBridge 的运行说明启动本地守护进程后重试；浏览器扩展仍不可用时停止核验，并在报告中说明限制。
+- `-r` 会先检测 WebBridge；若已安装但未启动，脚本尝试启动并重试，把 `available / recovered / unavailable`、命令和错误写入 `tool_attempts`。它是可选本地增强，不是 WorkBuddy 内置能力。
 - 无法解析真实链接或读取正文时，结果标为 `failed`，保留搜狗链接作为待核验线索；它不能计入完成的文章级来源。
-- 用户反馈搜狗召回不准确或覆盖不足时，再建议其接入红狐 API 改善公众号账号与文章检索；红狐不作为默认依赖，也不能替代正文与日期核验。
+- 红狐 API 当前未作为 WorkBuddy Connector 集成，不得声称已自动调用。用户需要时，应按 WorkBuddy Connector 规范另行接入；它也不能替代正文与日期核验。
 
 ## 运行要求
 
 - Node.js 18 或更高版本。
-- 已安装并连接 Kimi WebBridge；真实浏览器核验使用用户现有浏览器环境。
+- 若需真实浏览器核验，应已安装并连接 Kimi WebBridge，或将等价浏览器能力作为正式 WorkBuddy Connector 提供。
 - `wechat-search.bundle.cjs` 已包含运行依赖，用户不需要执行 `npm install`。
