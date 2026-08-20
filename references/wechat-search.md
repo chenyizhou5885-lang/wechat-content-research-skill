@@ -18,11 +18,13 @@ node scripts/search-wechat.js "关键词" -n 10
 node scripts/search-wechat.js "关键词" -n 10 --days 90
 ```
 
-只对最终入选的少量文章尝试解析微信真实链接：
+只对最终入选的少量文章使用 Kimi WebBridge 在真实浏览器中打开、解析并核验微信原文：
 
 ```bash
 node scripts/search-wechat.js "关键词" -n 5 -r
 ```
+
+`-r` 与 `--verify-browser` 等价。核验时会读取浏览器最终地址，并交叉检查标题、公众号、发布日期与正文。只有 `verification` 为 `verified` 的结果才可进入正式来源台账。
 
 ## 检索策略
 
@@ -37,7 +39,9 @@ node scripts/search-wechat.js "关键词" -n 5 -r
 ## 输出使用
 
 - `published_at` 是经过解析的 ISO 时间，用于判断一年窗口。
-- `url` 可能是搜狗中间链接；只有 `-r` 成功时才可能成为微信原始链接。
+- 未使用 `-r` 时，`url` 只是搜狗候选链接，`verification` 为 `candidate_only`。
+- 使用 `-r` 后，成功结果的 `url` 和 `resolved_url` 是浏览器实际打开的微信原文地址，并包含 `verified_title`、`verified_account`、`verified_published_at_raw`、`body_text` 与 `body_length`。
+- 搜狗候选链接可能带 `timestamp`、`signature` 等临时参数，不能写入正式报告充当可长期复核的原文链接。
 - 搜索摘要只用于初筛，不作为事实证据，不用于语言风格抽象。
 - 进入正式报告的文章必须进一步核验正文、发布日期与可访问链接。
 
@@ -46,10 +50,12 @@ node scripts/search-wechat.js "关键词" -n 5 -r
 - `returned` 为 0 时，先更换关键词或稍后重试一次。
 - 遇到验证码、antispider、请求超时或页面结构变化时停止搜狗请求，改用普通网页搜索并在调研报告中说明渠道限制。
 - 不高频调用，不批量抓取账号历史，不用旧文章补足数量。
-- 无法解析真实链接时保留搜狗链接作为待核验线索；它不能计入完成的文章级来源。
+- WebBridge 未启动时，按 Kimi WebBridge 的运行说明启动本地守护进程后重试；浏览器扩展仍不可用时停止核验，并在报告中说明限制。
+- 无法解析真实链接或读取正文时，结果标为 `failed`，保留搜狗链接作为待核验线索；它不能计入完成的文章级来源。
+- 用户反馈搜狗召回不准确或覆盖不足时，再建议其接入红狐 API 改善公众号账号与文章检索；红狐不作为默认依赖，也不能替代正文与日期核验。
 
 ## 运行要求
 
 - Node.js 18 或更高版本。
+- 已安装并连接 Kimi WebBridge；真实浏览器核验使用用户现有浏览器环境。
 - `wechat-search.bundle.cjs` 已包含运行依赖，用户不需要执行 `npm install`。
-
