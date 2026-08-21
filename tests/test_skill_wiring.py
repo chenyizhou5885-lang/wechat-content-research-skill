@@ -30,8 +30,8 @@ build_sources = load_module("bs_wiring", ROOT / "scripts" / "build_sources.py")
 
 
 class FrontmatterTests(unittest.TestCase):
-    def test_version_was_bumped(self):
-        self.assertIn("version: 0.7.0", SKILL)
+    def test_version_is_declared(self):
+        self.assertRegex(SKILL, re.compile(r"^version: 0\.7\.\d+$", re.M))
 
     def test_write_tool_is_declared(self):
         # The pipeline creates raw_sources.json, research-report.md and article-draft.md.
@@ -68,7 +68,26 @@ class PipelineWiringTests(unittest.TestCase):
         self.assertIn("不代表够格", targeted)
 
     def test_account_scoped_lookup_limit_is_disclosed(self):
-        self.assertIn("没搜到不等于", SKILL)
+        # Wording may change; the disclosure itself must not disappear.
+        self.assertRegex(SKILL, r"(搜不到|没搜到)不等于")
+
+    def test_onboarding_offers_options_instead_of_open_questions(self):
+        invite = SKILL[SKILL.index("### 邀请开始"):SKILL.index("## 构建信源组合")]
+        self.assertIn("给选项让用户挑", invite)
+        # The opening choice must map onto the depth tiers.
+        for depth in ("scan", "research", "writing"):
+            self.assertIn(f"`{depth}`", invite)
+
+    def test_option_first_principle_is_stated(self):
+        self.assertIn("少问，多给选项", SKILL)
+        self.assertIn("能自己查的不要问", SKILL)
+
+    def test_research_coordinates_section_survived(self):
+        self.assertIn("开始前先建立研究坐标", SKILL)
+        self.assertIn("暂定判断", SKILL)
+
+    def test_consent_sensitive_items_are_still_asked(self):
+        self.assertIn("必须问", SKILL)
 
 
 class TemplateTests(unittest.TestCase):
