@@ -12,6 +12,9 @@ def read_json(path):
         return json.load(handle)
 
 
+MATERIAL_NOTE_HEADING = "材料说明"
+
+
 def validate(sources, mode, report_path=None, article_path=None):
     errors = []
     warnings = []
@@ -20,27 +23,34 @@ def validate(sources, mode, report_path=None, article_path=None):
     if mode == "writing":
         if not gate.get("writing_ready"):
             errors.append("writing gate failed: source and/or WeChat research is incomplete")
-    elif not gate.get("research_ready"):
-        warnings.append("research coverage is incomplete; only a limitation-marked research output is allowed")
+    elif mode == "research":
+        if not gate.get("research_ready"):
+            warnings.append("research coverage is incomplete; only a limitation-marked research output is allowed")
+    elif not gate.get("scan_ready"):
+        warnings.append("scan coverage is incomplete; every lead must stay marked as unverified")
 
-    if not gate.get("has_s"):
-        errors.append("missing accepted S-grade primary source")
-    if not gate.get("has_a"):
-        errors.append("missing accepted independent A-grade source")
-    if not gate.get("core_claims_ready"):
-        errors.append("one or more core claims lack primary/independent evidence")
-    if not gate.get("strong_topics_ready"):
-        errors.append("one or more strong recommendations lack S + A + enterprise evidence")
+    # The scan depth buys speed by refusing to draw conclusions, so it is not held
+    # to the evidence bar. Anything above it is.
+    if mode != "scan":
+        if not gate.get("has_s"):
+            errors.append("missing accepted S-grade primary source")
+        if not gate.get("has_a"):
+            errors.append("missing accepted independent A-grade source")
+        if not gate.get("core_claims_ready"):
+            errors.append("one or more core claims lack primary/independent evidence")
+        if not gate.get("strong_topics_ready"):
+            errors.append("one or more strong recommendations lack S + A + enterprise evidence")
+        if not gate.get("coverage_ready"):
+            coverage = sources.get("coverage_audit", {})
+            errors.append(
+                "research funnel coverage failed: "
+                f"candidates={coverage.get('candidates', 0)}, visited={coverage.get('visited_results', 0)}, "
+                f"accepted={coverage.get('accepted_sources', 0)}, "
+                f"channels={len(coverage.get('discovery_channels', []))}, "
+                f"registry_publishers={len(coverage.get('registry_hit_publishers', []))}"
+            )
     if not gate.get("tool_log_ready"):
         errors.append("tool was declared unavailable without a recorded attempt and error")
-    if not gate.get("coverage_ready"):
-        coverage = sources.get("coverage_audit", {})
-        errors.append(
-            "research funnel coverage failed: "
-            f"candidates={coverage.get('candidates', 0)}, visited={coverage.get('visited_results', 0)}, "
-            f"accepted={coverage.get('accepted_sources', 0)}, "
-            f"channels={len(coverage.get('discovery_channels', []))}"
-        )
 
     wechat = sources.get("wechat_audit", {})
     if mode == "writing" and not wechat.get("required"):
@@ -58,8 +68,12 @@ def validate(sources, mode, report_path=None, article_path=None):
             errors.append("research report file does not exist")
         else:
             report_text = path.read_text(encoding="utf-8")
+            if MATERIAL_NOTE_HEADING not in report_text:
+                errors.append("report is missing the 「材料说明」 section")
             if not gate.get("writing_ready") and re.search(r"强推荐|满足强推荐|门禁完成", report_text):
                 errors.append("report claims strong recommendation/gate completion while writing gate failed")
+            if mode == "scan" and "待验证" not in report_text:
+                errors.append("scan output must mark every lead as 待验证")
 
     if article_path:
         path = Path(article_path)
@@ -74,7 +88,7 @@ def validate(sources, mode, report_path=None, article_path=None):
 def main():
     parser = argparse.ArgumentParser(description="Hard gate before editorial writing")
     parser.add_argument("--sources", required=True)
-    parser.add_argument("--mode", choices=("research", "writing"), default="writing")
+    parser.add_argument("--mode", choices=("scan", "research", "writing"), default="writing")
     parser.add_argument("--report")
     parser.add_argument("--article")
     args = parser.parse_args()

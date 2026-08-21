@@ -6,9 +6,9 @@ description: 面向企业公众号的选题情报研究与成稿写作。先理�
 description_zh: 从上游议题、管理问题、同类表达与企业现场中形成可验证选题并写成自然中文稿件
 description_en: Research defensible WeChat editorial angles and turn them into evidence-grounded, natural Chinese drafts
 category: writing
-version: 0.6.0
+version: 0.7.0
 author: 句子互动
-allowed-tools: Bash,Read,WebSearch,WebFetch
+allowed-tools: Bash,Read,Write,WebSearch,WebFetch
 metadata:
   requires:
     bins:
@@ -28,8 +28,9 @@ metadata:
 
 - 公开来源发现与网页读取使用 WorkBuddy 宿主自动提供的 `WebSearch`、`WebFetch`；先定向寻找机构官网、报告原文和官方页面，不把搜索摘要当证据。
 - 本 Skill 的 `scripts/` 只执行本地标准库数据清洗、门禁和已安装可选工具的状态检测，不硬编码 Token、账号、用户绝对路径或远程私有服务。
-- Kimi WebBridge 是可选的本地核验增强，不是 WorkBuddy 内置工具。脚本可检测 PATH、`KIMI_WEBBRIDGE_BIN` 或标准安装位置并尝试启动；未安装时如实记录。
-- 红狐 API 尚未作为 WorkBuddy Connector 接入，不得声称已调用。需要自动调用时，应另按 WorkBuddy MCP/CLI Connector 规范接入并由用户完成授权。
+- 已知真实 `mp.weixin.qq.com` 地址时，用宿主 `WebFetch` 读取标题、日期和正文即可，不需要真实浏览器。微信文章页常有数 MB，只提取所需字段，不要整页带进上下文。
+- Kimi WebBridge 是可选的本地增强，不是 WorkBuddy 内置工具，仅用于把搜狗中转链接解析成真实地址。未安装时如实记录为 `failed`，不得拿壳页或搜狗链接充当已核验。
+- 公众号数据服务（新榜、红狐等）尚未作为 WorkBuddy Connector 接入，不得声称已调用。需要时按 WorkBuddy Connector 规范另行接入并由用户完成授权。不得推荐自建 RSS 抓取方案。
 
 ## 用户只问“你能做什么”时
 
@@ -48,6 +49,7 @@ metadata:
 ### 我不能帮你做什么
 
 - 不编造客户案例、数字、人物原话和不存在的来源。
+- 不能按账号列出某个公众号的历史文章：微信没有开放这个能力。没搜到不等于对方没写过。
 - 不能保证公开搜索覆盖所有公众号文章、阅读量或平台内部数据。
 - 不能把未经授权的客户隐私、内部材料或商业秘密写进公开文章。
 - 不能承诺文章一定获得流量、转化或绕过 AI 检测。
@@ -88,22 +90,36 @@ metadata:
 
 根据企业所在行业、目标读者和选题问题动态选择具体机构。科技与创业主题可以纳入科技媒体、创投媒体、真格基金等投资机构的研究与访谈；其他行业应切换到对应的垂直媒体、协会、研究平台和头部实践者。不要把央媒、官媒、腾讯研究院、HBR、飞书或任何单一名单写成固定答案。需要规划信源时阅读 [信源地图与选题漏斗](references/research-method.md)。
 
-开始外部检索前必须读取 [信源质量与证据准入](references/source-quality.md)，先建立本轮优先信源池，再执行机构优先检索。链接可访问不等于证据合格；按 S/A/B/C 分级，C 级只作线索。数字、预测、公司动作、引语等核心事实必须回溯原始出处。强推荐选题至少具备 1 个 S 级原始来源、1 个独立 A 级来源和企业一手现场；不满足时降低为“待验证方向”。
+开始外部检索前必须读取 [信源质量与证据准入](references/source-quality.md) 与 [定向召回与行业信源名单](references/targeted-retrieval.md)，先建立本轮优先信源池和行业名单，再执行机构优先的站内定向检索。进入名单只决定「值不值得去捞」，不决定「够不够格当证据」——名单内来源同样按 S/A/B/C 分级。链接可访问不等于证据合格；按 S/A/B/C 分级，C 级只作线索。数字、预测、公司动作、引语等核心事实必须回溯原始出处。强推荐选题至少具备 1 个 S 级原始来源、1 个独立 A 级来源和企业一手现场；不满足时降低为“待验证方向”。
 
 同时读取 @references/source-pipeline.md，执行下面的可审计信源流水线。文字报告不能替代流水线产物。
 
 ## 可审计信源流水线
 
+先确认本轮深度，不同深度的成本差别很大：
+
+| 深度 | 用途 | 是否开页 |
+| --- | --- | --- |
+| `scan` | 选题脑暴、先看看有什么 | 不开页，只看摘要，结论全部标「待验证」 |
+| `research` | 交调研报告 | 开页，但不要求公众号门禁 |
+| `writing` | 要成稿 | 全部门禁生效 |
+
 在任务输出目录执行：
 
-1. 从 `templates/raw_sources.json` 复制生成 `raw_sources.json`。
-2. 使用宿主 `WebSearch/WebFetch` 至少走两种发现渠道，先建立至少 12 个候选；实际打开至少 8 个页面，记录最终 URL、发布者、日期、原创性和页面级证据。
-3. 搜索微信公众号时执行 `node scripts/search-wechat.js "关键词" -n 10`；最终候选用 `-r` 核验。把脚本返回的 `tool_attempts` 和文章字段写入 `raw_sources.json`。
-4. 执行 `python3 scripts/build_sources.py --raw raw_sources.json --out sources.json`。只使用 `accepted_sources` 写正式台账；`rejected_sources` 写入待核验与淘汰线索。
-5. 先写 `research-report.md`，再执行 `python3 scripts/validate_research.py --sources sources.json --mode writing --report research-report.md`。
-6. 只有退出码为 0 才创建 `article-draft.md`。创建后再次执行同一命令并加 `--article article-draft.md`。
+1. 探测能力档位：`python3 scripts/detect_capability.py --task-dir .`。结果写入 `raw_sources.json` 的 `capability` 段。探测不到数据服务就静默按 `search_only` 继续，不要在开头盘问用户。详见 [检索能力档位与材料说明](references/source-tiers.md)。
+2. 从 `templates/raw_sources.json` 复制生成 `raw_sources.json`，并把本轮 `depth` 写进去。
+3. 建立本行业信源名单：用户已有 `source_registry.json` 就优先使用，没有就参照 `templates/source_registry.json` 现场生成，写入 `source_registry` 段。方法见 [定向召回与行业信源名单](references/targeted-retrieval.md)。
+4. 先做名单内站内定向检索，再做动态机构检索，最后才全网兜底。至少走两种发现渠道。
+5. 打开页面之前先跑预筛：`python3 scripts/prefilter_candidates.py --candidates candidates.json --out filtered.json`。门户自媒体、聚合低质站、搜狗中转链接、超窗口和无日期条目在这一步就扔掉，不要花成本打开。
+6. 搜索微信公众号时执行 `node scripts/search-wechat.js "关键词" -n 10`；最终候选用 `-r` 解析真实地址。给每条结果标 `role`：支撑事实的用 `fact_source` 走全文核验，只看同行讲法的用 `landscape_only`，后者不必读全文但不能支撑任何 claim。把 `tool_attempts` 和文章字段写入 `raw_sources.json`。
+7. 中途查缺口，不要等到终点：`python3 scripts/build_sources.py --raw raw_sources.json --interim`。它会告诉你还差什么、下一步最该补哪个。缺一个 S 级源时就去补 S 级源，不要继续凑候选数量。
+8. 执行 `python3 scripts/build_sources.py --raw raw_sources.json --out sources.json`。只使用 `accepted_sources` 写正式台账；`rejected_sources` 写入待核验与淘汰线索。
+9. 先写 `research-report.md`，开头第一节必须是「材料说明」。再执行 `python3 scripts/validate_research.py --sources sources.json --mode <scan|research|writing> --report research-report.md`。
+10. 只有 `writing` 模式退出码为 0 才创建 `article-draft.md`。创建后再次执行同一命令并加 `--article article-draft.md`。
 
 门禁退出码非零时停止写作，只交付标明缺口的研究报告与 `raw_sources.json`、`sources.json`。不得用普通 Web Search、搜索摘要或“工具当前不可用”的一句话代替公众号调研门禁。
+
+覆盖率考核的是「名单里真读到几家」加「有几个原始出处」，不是「一共读了几篇」。名单为空时这一条自动不生效。
 
 修改或发布 Skill 前执行 `python3 scripts/validate_skill.py` 与 `python3 -m unittest discover -s tests -v`；任一非零退出时不得打包。
 
@@ -195,14 +211,17 @@ metadata:
 
 默认交付一份“选题情报简报”，包含：
 
-1. **研究坐标**：账号、读者、传播任务、主题与关键假设。
-2. **中心判断**：本轮研究最值得企业占据的思想位置。
-3. **信号地图**：上游信号、管理问题、同类表达、企业现场之间的连接。
-4. **推荐选题**：每个选题写明核心判断、读者问题、来源启发、企业证据、差异化、风险与下一步补采。
-5. **不建议追的方向**：说明重复、证据不足、离业务太远或不具备表达资格的原因。
-6. **正式来源台账**：仅列 S/A/B 级来源，提供原始链接、日期、原创性、用途、回溯状态与采用理由；事实、转述和推断分开标记。
-7. **待核验与淘汰线索**：列出 C 级、转载、缺日期、缺正文或无法回溯的页面及淘汰原因。
-8. **素材缺口**：需要向客户、销售、交付、产品或管理层补问的问题。
+1. **材料说明**：放在最开头。本轮用了哪些渠道、名单里哪些账号没搜到（并说明搜不到不等于没写过）、哪些结论可以直接引用、哪些只能当线索。不要写成脚注。
+2. **研究坐标**：账号、读者、传播任务、主题与关键假设。
+3. **中心判断**：本轮研究最值得企业占据的思想位置。
+4. **信号地图**：上游信号、管理问题、同类表达、企业现场之间的连接。
+5. **推荐选题**：每个选题写明核心判断、读者问题、来源启发、企业证据、差异化、风险与下一步补采。
+6. **不建议追的方向**：说明重复、证据不足、离业务太远或不具备表达资格的原因。
+7. **正式来源台账**：仅列 S/A/B 级来源，提供原始链接、日期、原创性、用途、回溯状态与采用理由；事实、转述和推断分开标记。标明每条的 `role`，`landscape_only` 只能作为表达观察。
+8. **待核验与淘汰线索**：列出 C 级、转载、缺日期、缺正文或无法回溯的页面及淘汰原因。
+9. **素材缺口**：需要向客户、销售、交付、产品或管理层补问的问题。
+
+`scan` 深度下只交付到第 5 项，且每条推荐都必须标「待验证」，不写正式来源台账。
 
 需要固定字段或交给下游写作 Skill 时，读取 [输出契约](references/output-contract.md)。
 
@@ -230,6 +249,7 @@ metadata:
 
 调研报告是给用户审阅和二次优化的编辑工作底稿，不是内部思考过程或模型推理记录。必须明确展示：
 
+- 开头的「材料说明」：本轮渠道、没搜到的名单账号、可直接引用的结论、只能当线索的部分。
 - 为什么选择这些信源，以及它们在当前行业中的权威性来自哪里。
 - 确定选题后调研了哪些商业竞品、用户心智竞品和内容对标账号，以及对应的文章级链接。
 - 使用了哪些材料、舍弃了哪些方向、还有哪些证据缺口。

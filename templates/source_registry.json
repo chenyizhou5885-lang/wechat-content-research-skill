@@ -1,0 +1,41 @@
+{
+  "industry": "企业协作 / B 端 SaaS（示例，换行业请整份替换）",
+  "updated_at": "",
+  "_help": {
+    "layers": "fixed 是本行业长期盯的对象，dynamic 是本次选题相关的机构，nominated 是本轮兜底搜索捞到、建议下次进 fixed 的来源",
+    "roles": "head_product 头部产品 / peer_startup 同类初创 / senior_media 资深媒体或播客 / institution 监管、协会、研究机构",
+    "important": "进名单只决定「值不值得去捞」，不决定「够不够格当证据」。名单内来源同样要走 S/A/B/C 分级，核心数字仍须回溯原始出处。",
+    "maintenance": "每轮结束把 nominated 里有产出的移进 fixed；fixed 里连续几轮没产出的移出，避免名单僵化。"
+  },
+  "fixed": [
+    {
+      "name": "示例·头部产品官方",
+      "role": "head_product",
+      "domains": ["example-head.com"],
+      "wechat_accounts": ["示例头部产品"],
+      "why": "占据同一议题入口，用户会拿它做对比",
+      "last_hit_round": null,
+      "misses_in_a_row": 0
+    },
+    {
+      "name": "示例·同类初创",
+      "role": "peer_startup",
+      "domains": ["example-peer.com"],
+      "wechat_accounts": ["示例初创"],
+      "why": "服务同一批读者，讲法可对标",
+      "last_hit_round": null,
+      "misses_in_a_row": 0
+    },
+    {
+      "name": "示例·资深科技媒体",
+      "role": "senior_media",
+      "domains": ["example-media.com"],
+      "wechat_accounts": ["示例媒体"],
+      "why": "行业从业者和投资机构报告反复引用",
+      "last_hit_round": null,
+      "misses_in_a_row": 0
+    }
+  ],
+  "dynamic": [],
+  "nominated": []
+}
