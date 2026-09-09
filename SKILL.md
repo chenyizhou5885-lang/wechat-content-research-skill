@@ -7,7 +7,8 @@ description_zh: 从上游议题、管理问题、同类表达与企业现场中�
 description_en: Research defensible WeChat editorial angles and turn them into evidence-grounded, natural Chinese drafts
 category: writing
 version: 0.7.1
-author: 句子互动
+author: chenyizhou5885-lang
+created_for: 句子互动
 allowed-tools: Bash,Read,Write,WebSearch,WebFetch
 metadata:
   requires:
